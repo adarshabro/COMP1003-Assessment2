@@ -478,3 +478,226 @@ class HealthcareAnalyserApp:
             except Exception as e:
                 self._print(f"\n  ❌ Error processing data:\n  {e}\n", "error")
                 self._set_status("❌ Processing failed.")
+
+# ── Step 4: Visualise Data ────────────────────────────────────────────────
+    def _visualise_data(self):
+        if self.df is None:
+            messagebox.showwarning("No Data", "Please load the CSV data first!")
+            return
+        if not self.summary:
+            messagebox.showwarning("No Summary", "Please process the data first!")
+            return
+        choice = self._ask_chart_choice()
+        if choice == 1:
+            self._show_pie_chart()
+        elif choice == 2:
+            self._show_bar_chart()
+        elif choice == 3:
+            self._show_dashboard()
+
+    def _ask_chart_choice(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Select Visualisation")
+        dialog.geometry("340x230")
+        dialog.configure(bg=BG_DARK)
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        tk.Label(dialog, text="Choose a Visualisation",
+                 font=("Courier New", 12, "bold"),
+                 bg=BG_DARK, fg=ACCENT_TEAL).pack(pady=(18, 10))
+        choice = tk.IntVar(value=0)
+
+        def make_btn(txt, val, color):
+            b = tk.Button(dialog, text=txt,
+                          bg=BG_CARD, fg=color,
+                          activebackground=color, activeforeground=BG_DARK,
+                          font=FONT_BTN, relief="flat", bd=0,
+                          padx=10, pady=8, cursor="hand2", width=28,
+                          command=lambda: [choice.set(val), dialog.destroy()])
+            b.pack(pady=3)
+            b.bind("<Enter>", lambda e: b.configure(bg=color, fg=BG_DARK))
+            b.bind("<Leave>", lambda e: b.configure(bg=BG_CARD, fg=color))
+
+        make_btn("🥧  Pie Chart  — Department",   1, ACCENT_TEAL)
+        make_btn("📊  Bar Chart  — Gender",        2, ACCENT_BLUE)
+        make_btn("📋  Dashboard  — Full Overview", 3, "#F4A261")
+        dialog.wait_window()
+        return choice.get()
+
+    def _show_pie_chart(self):
+        dept_counts = self.summary["dept_counts"]
+        labels  = list(dept_counts.keys())
+        sizes   = list(dept_counts.values())
+        colors  = ["#00C9A7", "#4FC3F7", "#F4A261"]
+        explode = [0.05] * len(labels)
+        fig, ax = plt.subplots(figsize=(7, 5), facecolor=BG_DARK)
+        ax.set_facecolor(BG_DARK)
+        wedges, texts, autotexts = ax.pie(
+            sizes, labels=labels, autopct="%1.1f%%",
+            colors=colors, explode=explode, startangle=140, pctdistance=0.82,
+            wedgeprops=dict(edgecolor=BG_DARK, linewidth=2))
+        for t in texts:
+            t.set_color(TEXT_LIGHT); t.set_fontsize(11)
+        for at in autotexts:
+            at.set_color(BG_DARK); at.set_fontweight("bold"); at.set_fontsize(10)
+        ax.set_title("Employees by Department",
+                     color=ACCENT_TEAL, fontsize=14, fontweight="bold", pad=16)
+        patches = [mpatches.Patch(color=colors[i], label=f"{labels[i]}: {sizes[i]}")
+                   for i in range(len(labels))]
+        ax.legend(handles=patches, loc="lower center",
+                  bbox_to_anchor=(0.5, -0.08), ncol=3,
+                  facecolor=BG_MID, edgecolor=BORDER_COL,
+                  labelcolor=TEXT_LIGHT, fontsize=9)
+        plt.tight_layout()
+        self._open_chart_window("Pie Chart — Department Distribution", fig)
+        self._print("\n  🥧 Pie chart displayed.\n", "success")
+        self._set_status("Pie chart shown.")
+
+    def _show_bar_chart(self):
+        gender_counts = self.summary["gender_counts"]
+        genders = list(gender_counts.keys())
+        counts  = list(gender_counts.values())
+        colors  = [ACCENT_TEAL if g == "Female" else ACCENT_BLUE for g in genders]
+        total   = sum(counts)
+        fig, ax = plt.subplots(figsize=(7, 5), facecolor=BG_DARK)
+        ax.set_facecolor(BG_MID)
+        bars = ax.bar(genders, counts, color=colors, width=0.45,
+                      edgecolor=BG_DARK, linewidth=1.5)
+        for bar, count in zip(bars, counts):
+            pct = math_round(count / total * 100, 1)
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 3,
+                    f"{count}\n({pct}%)",
+                    ha="center", va="bottom",
+                    color=TEXT_LIGHT, fontsize=11, fontweight="bold")
+        ax.set_title("Employees by Gender",
+                     color=ACCENT_TEAL, fontsize=14, fontweight="bold", pad=14)
+        ax.set_xlabel("Gender", color=TEXT_DIM, fontsize=11)
+        ax.set_ylabel("Number of Employees", color=TEXT_DIM, fontsize=11)
+        ax.tick_params(colors=TEXT_LIGHT, labelsize=11)
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.spines[["left", "bottom"]].set_color(BORDER_COL)
+        ax.set_ylim(0, max(counts) + 50)
+        fig.patch.set_facecolor(BG_DARK)
+        plt.tight_layout()
+        self._open_chart_window("Bar Chart — Gender Distribution", fig)
+        self._print("\n  📊 Bar chart displayed.\n", "success")
+        self._set_status("Bar chart shown.")
+
+    def _show_dashboard(self):
+        s  = self.summary
+        df = self.df
+        fig = plt.figure(figsize=(13, 8), facecolor=BG_DARK)
+        fig.suptitle("Healthcare Worker Engagement — Dashboard",
+                     color=ACCENT_TEAL, fontsize=15, fontweight="bold", y=0.98)
+
+        # 1) Dept pie
+        ax1 = fig.add_subplot(2, 3, 1)
+        ax1.set_facecolor(BG_MID)
+        dept = s["dept_counts"]
+        ax1.pie(dept.values(), labels=dept.keys(), autopct="%1.0f%%",
+                colors=["#00C9A7", "#4FC3F7", "#F4A261"], startangle=140,
+                textprops={"color": TEXT_LIGHT, "fontsize": 8},
+                wedgeprops=dict(edgecolor=BG_DARK, linewidth=1.2))
+        ax1.set_title("By Department", color=ACCENT_BLUE, fontsize=10, fontweight="bold")
+
+        # 2) Gender bar
+        ax2 = fig.add_subplot(2, 3, 2)
+        ax2.set_facecolor(BG_MID)
+        genders = s["gender_counts"]
+        bars = ax2.bar(genders.keys(), genders.values(),
+                       color=[ACCENT_TEAL, ACCENT_BLUE],
+                       edgecolor=BG_DARK, linewidth=1)
+        for bar in bars:
+            ax2.text(bar.get_x() + bar.get_width() / 2,
+                     bar.get_height() + 2, str(int(bar.get_height())),
+                     ha="center", color=TEXT_LIGHT, fontsize=9, fontweight="bold")
+        ax2.set_title("By Gender", color=ACCENT_BLUE, fontsize=10, fontweight="bold")
+        ax2.tick_params(colors=TEXT_LIGHT, labelsize=9)
+        ax2.spines[["top", "right"]].set_visible(False)
+        ax2.spines[["left", "bottom"]].set_color(BORDER_COL)
+
+        # 3) Attrition pie
+        ax3 = fig.add_subplot(2, 3, 3)
+        att_yes = s["total_attritions"]
+        att_no  = s["total_employees"] - att_yes
+        ax3.pie([att_no, att_yes], labels=["Stayed", "Left"],
+                autopct="%1.1f%%", colors=["#00C9A7", "#E76F51"],
+                startangle=90,
+                textprops={"color": TEXT_LIGHT, "fontsize": 9},
+                wedgeprops=dict(edgecolor=BG_DARK, linewidth=1.2))
+        ax3.set_title("Attrition Rate", color=ACCENT_BLUE, fontsize=10, fontweight="bold")
+
+        # 4) Attrition by dept
+        ax4 = fig.add_subplot(2, 3, 4)
+        ax4.set_facecolor(BG_MID)
+        dept_att = df[df["Attrition"] == AttritionStatus.YES.value]["Department"].value_counts()
+        ax4.bar(dept_att.index, dept_att.values,
+                color=["#F4A261", "#E76F51", "#E9C46A"],
+                edgecolor=BG_DARK, linewidth=1)
+        for i, (idx, val) in enumerate(dept_att.items()):
+            ax4.text(i, val + 0.3, str(val),
+                     ha="center", color=TEXT_LIGHT, fontsize=9, fontweight="bold")
+        ax4.set_title("Attritions by Dept", color=ACCENT_BLUE, fontsize=10, fontweight="bold")
+        ax4.tick_params(colors=TEXT_LIGHT, labelsize=8)
+        ax4.spines[["top", "right"]].set_visible(False)
+        ax4.spines[["left", "bottom"]].set_color(BORDER_COL)
+
+        # 5) Work-life balance bar
+        ax5 = fig.add_subplot(2, 3, 5)
+        ax5.set_facecolor(BG_MID)
+        wlb_map    = {e.value: e.name.capitalize() for e in WorkLifeBalanceLevel}
+        wlb_counts = df["WorkLifeBalance"].value_counts().sort_index()
+        wlb_names  = [wlb_map.get(int(k), str(k)) for k in wlb_counts.index]
+        ax5.bar(wlb_names, wlb_counts.values,
+                color=["#E76F51", "#F4A261", "#4FC3F7", "#00C9A7"],
+                edgecolor=BG_DARK, linewidth=1)
+        for i, val in enumerate(wlb_counts.values):
+            ax5.text(i, val + 1, str(val),
+                     ha="center", color=TEXT_LIGHT, fontsize=9, fontweight="bold")
+        ax5.set_title("Work-Life Balance", color=ACCENT_BLUE, fontsize=10, fontweight="bold")
+        ax5.tick_params(colors=TEXT_LIGHT, labelsize=9)
+        ax5.spines[["top", "right"]].set_visible(False)
+        ax5.spines[["left", "bottom"]].set_color(BORDER_COL)
+
+        # 6) Key metrics panel
+        ax6 = fig.add_subplot(2, 3, 6)
+        ax6.set_facecolor(BG_CARD)
+        ax6.axis("off")
+        ax6.set_title("Key Metrics", color=ACCENT_BLUE, fontsize=10, fontweight="bold")
+        metrics = [
+            ("Total Employees",  str(s["total_employees"])),
+            ("Total Attritions", str(s["total_attritions"])),
+            ("Attrition Rate",   f"{s['attrition_rate_pct']}%"),
+            ("Avg WLB Score",    f"{s['avg_work_life_balance']} / 3"),
+            ("Avg Years at Co.", f"{s['years_avg']} yrs"),
+            ("Avg Hourly Rate",  f"${s['hourly_avg']}"),
+            ("Overtime Workers", f"{s['overtime_yes']}  ({s['overtime_pct']}%)"),
+        ]
+        for i, (label, value) in enumerate(metrics):
+            y_pos = 0.90 - i * 0.13
+            ax6.text(0.05, y_pos, label + ":",
+                     transform=ax6.transAxes, color=TEXT_DIM, fontsize=9)
+            ax6.text(0.95, y_pos, value,
+                     transform=ax6.transAxes, color=ACCENT_TEAL,
+                     fontsize=10, fontweight="bold", ha="right")
+
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        self._open_chart_window("Dashboard — Full Overview", fig)
+        self._print("\n  📋 Dashboard displayed.\n", "success")
+        self._set_status("Dashboard shown.")
+
+    def _open_chart_window(self, title: str, fig):
+        win = tk.Toplevel(self.root)
+        win.title(title)
+        win.configure(bg=BG_DARK)
+        canvas = FigureCanvasTkAgg(fig, master=win)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+        tk.Button(win, text="✖  Close",
+                  command=lambda: [plt.close(fig), win.destroy()],
+                  font=FONT_BTN, bg=BG_CARD, fg="#E76F51",
+                  activebackground="#E76F51", activeforeground=BG_DARK,
+                  relief="flat", padx=10, pady=6, cursor="hand2").pack(pady=(0, 10))
+
+        
