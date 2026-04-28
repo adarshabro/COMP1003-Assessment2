@@ -183,3 +183,137 @@ def build_summary(df: pd.DataFrame) -> dict:
         "jobrole_counts"       : df["JobRole"].value_counts().to_dict(),
     }
     return summary
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  MAIN APPLICATION CLASS
+# ──────────────────────────────────────────────────────────────────────────────
+class HealthcareAnalyserApp:
+    """Main Tkinter GUI application for Healthcare Worker Engagement Analysis."""
+
+    def __init__(self, root: tk.Tk):
+        self.root    = root
+        self.df      = None   # Pandas DataFrame
+        self.summary = {}     # Summary dictionary
+        self._configure_window()
+        self._build_ui()
+
+    # ── Window setup ──────────────────────────────────────────────────────────
+    def _configure_window(self):
+        # Title format: "Student's Name & Student's ID" as per brief
+        self.root.title(f"{DEVELOPER_NAME} & {STUDENT_ID}")
+        self.root.geometry("900x700")
+        self.root.minsize(820, 600)
+        self.root.configure(bg=BG_DARK)
+        self.root.update_idletasks()
+        x = (self.root.winfo_screenwidth()  // 2) - 450
+        y = (self.root.winfo_screenheight() // 2) - 350
+        self.root.geometry(f"+{x}+{y}")
+
+    # ── Full UI ───────────────────────────────────────────────────────────────
+    def _build_ui(self):
+        self._build_header()
+        self._build_button_panel()
+        self._build_output_area()
+        self._build_status_bar()
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    def _build_header(self):
+        header = tk.Frame(self.root, bg=BG_MID, pady=14)
+        header.pack(fill="x")
+        tk.Frame(header, bg=ACCENT_TEAL, width=5).pack(side="left", fill="y", padx=(12, 14))
+        info = tk.Frame(header, bg=BG_MID)
+        info.pack(side="left", fill="both", expand=True)
+        tk.Label(info, text="Healthcare Worker Engagement Analyser",
+                 font=FONT_TITLE, bg=BG_MID, fg=ACCENT_TEAL, anchor="w").pack(fill="x")
+        tk.Label(info,
+                 text=f"COMP1003 – Programming Principles and Techniques  |  {SYSTEM_VERSION}",
+                 font=FONT_SUB, bg=BG_MID, fg=TEXT_DIM, anchor="w").pack(fill="x")
+        badge = tk.Frame(header, bg=BG_CARD, padx=12, pady=6)
+        badge.pack(side="right", padx=14)
+        tk.Label(badge, text="Developer",
+                 font=("Courier New", 7, "bold"), bg=BG_CARD, fg=TEXT_DIM).pack()
+        tk.Label(badge, text=DEVELOPER_NAME,
+                 font=("Courier New", 10, "bold"), bg=BG_CARD, fg=ACCENT_BLUE).pack()
+        tk.Label(badge, text=STUDENT_ID,
+                 font=("Courier New", 9), bg=BG_CARD, fg=TEXT_DIM).pack()
+        tk.Frame(self.root, bg=ACCENT_TEAL, height=2).pack(fill="x")
+
+    # ── Button panel ──────────────────────────────────────────────────────────
+    def _build_button_panel(self):
+        panel = tk.Frame(self.root, bg=BG_DARK, pady=16)
+        panel.pack(fill="x", padx=20)
+        buttons = [
+            ("📂  Load Data",            self._load_data,       ACCENT_TEAL),
+            ("⚙️   Process & Summarise", self._process_data,    ACCENT_BLUE),
+            ("📊  Visualise Data",       self._visualise_data,  "#F4A261"),
+            ("📄  Generate Report",      self._generate_report, "#E76F51"),
+        ]
+        for i, (label, cmd, color) in enumerate(buttons):
+            col = tk.Frame(panel, bg=BG_DARK)
+            col.grid(row=0, column=i, padx=8, sticky="ew")
+            panel.columnconfigure(i, weight=1)
+            btn = tk.Button(col, text=label, command=cmd,
+                            font=FONT_BTN, bg=BG_CARD, fg=color,
+                            activebackground=color, activeforeground=BG_DARK,
+                            relief="flat", bd=0, padx=10, pady=10, cursor="hand2",
+                            highlightthickness=1, highlightbackground=color)
+            btn.pack(fill="x")
+            btn.bind("<Enter>", lambda e, b=btn, c=color: b.configure(bg=c, fg=BG_DARK))
+            btn.bind("<Leave>", lambda e, b=btn, c=color: b.configure(bg=BG_CARD, fg=c))
+        tk.Frame(self.root, bg=BORDER_COL, height=1).pack(fill="x", padx=20)
+
+    # ── Output area ───────────────────────────────────────────────────────────
+    def _build_output_area(self):
+        outer = tk.Frame(self.root, bg=BG_DARK)
+        outer.pack(fill="both", expand=True, padx=20, pady=(10, 0))
+        tk.Label(outer, text="OUTPUT CONSOLE",
+                 font=("Courier New", 8, "bold"),
+                 bg=BG_DARK, fg=TEXT_DIM).pack(anchor="w", pady=(0, 4))
+        self.output_text = scrolledtext.ScrolledText(
+            outer, font=FONT_OUTPUT, bg=BG_CARD, fg=TEXT_LIGHT,
+            insertbackground=ACCENT_TEAL, relief="flat", bd=0,
+            padx=12, pady=10, state="disabled", wrap="word")
+        self.output_text.pack(fill="both", expand=True)
+        self.output_text.tag_config("heading", foreground=ACCENT_TEAL,
+                                    font=("Courier New", 10, "bold"))
+        self.output_text.tag_config("sub",     foreground=ACCENT_BLUE)
+        self.output_text.tag_config("value",   foreground="#A8D8EA")
+        self.output_text.tag_config("success", foreground="#00C9A7")
+        self.output_text.tag_config("error",   foreground="#E76F51")
+        self.output_text.tag_config("warn",    foreground="#F4A261")
+        self._print("=" * 60 + "\n", "heading")
+        self._print("  Healthcare Worker Engagement Analyser\n", "heading")
+        self._print(f"  {SYSTEM_VERSION}  |  {DEVELOPER_NAME}  |  {STUDENT_ID}\n", "sub")
+        self._print("=" * 60 + "\n\n", "heading")
+        self._print("  Ready. Please click  📂 Load Data  to begin.\n", "value")
+
+    # ── Status bar ────────────────────────────────────────────────────────────
+    def _build_status_bar(self):
+        bar = tk.Frame(self.root, bg=BG_MID, pady=4)
+        bar.pack(fill="x", side="bottom")
+        tk.Frame(bar, bg=ACCENT_TEAL, width=3).pack(side="left", fill="y")
+        self.status_var = tk.StringVar(value="Status: Ready")
+        tk.Label(bar, textvariable=self.status_var,
+                 font=FONT_LABEL, bg=BG_MID, fg=TEXT_DIM,
+                 anchor="w", padx=10).pack(side="left")
+        tk.Label(bar, text=f"COMP1003  {SYSTEM_VERSION}",
+                 font=FONT_LABEL, bg=BG_MID, fg=BORDER_COL,
+                 anchor="e", padx=10).pack(side="right")
+
+    # ── Console helpers ───────────────────────────────────────────────────────
+    def _print(self, text: str, tag: str = ""):
+        self.output_text.configure(state="normal")
+        if tag:
+            self.output_text.insert("end", text, tag)
+        else:
+            self.output_text.insert("end", text)
+        self.output_text.see("end")
+        self.output_text.configure(state="disabled")
+
+    def _clear_output(self):
+        self.output_text.configure(state="normal")
+        self.output_text.delete("1.0", "end")
+        self.output_text.configure(state="disabled")
+
+    def _set_status(self, msg: str):
+        self.status_var.set(f"Status: {msg}")
