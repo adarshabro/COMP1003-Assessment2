@@ -317,3 +317,164 @@ class HealthcareAnalyserApp:
 
     def _set_status(self, msg: str):
         self.status_var.set(f"Status: {msg}")
+
+        # ── Step 2: Load Data ─────────────────────────────────────────────────────
+        def _load_data(self):
+            file_path = filedialog.askopenfilename(
+                title="Select Healthcare Worker CSV File",
+                filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")])
+            if not file_path:
+                self._set_status("No file selected.")
+                return
+            try:
+                # Step A: load with csv module (satisfies csv requirement)
+                raw_rows = load_csv_with_csv_module(file_path)
+
+                # Step B: load into Pandas DataFrame for processing
+                self.df = pd.read_csv(file_path)
+
+                # Enforce correct numeric types
+                numeric_cols = [
+                    "Age", "Education", "HourlyRate", "YearsAtCompany",
+                    "YearsInCurrRole", "DistanceFromHome", "WorkLifeBalance",
+                    "YearsLastPromotion", "YearsCurrManager"
+                ]
+                for col in numeric_cols:
+                    if col in self.df.columns:
+                        self.df[col] = pd.to_numeric(self.df[col], errors="coerce")
+
+                fname = os.path.basename(file_path)
+                self._clear_output()
+                self._print("=" * 60 + "\n", "heading")
+                self._print("  📂  DATA LOADED SUCCESSFULLY\n", "heading")
+                self._print("=" * 60 + "\n\n", "heading")
+                self._print(f"  File            : ", "sub");
+                self._print(f"{fname}\n", "value")
+                self._print(f"  Records         : ", "sub");
+                self._print(f"{len(self.df)} rows\n", "value")
+                self._print(f"  Columns         : ", "sub");
+                self._print(f"{len(self.df.columns)}\n", "value")
+                self._print(f"  Missing values  : ", "sub");
+                self._print(f"{self.df.isnull().sum().sum()}\n", "value")
+                self._print(f"  csv module rows : ", "sub");
+                self._print(f"{len(raw_rows)}\n\n", "value")
+
+                self._print("  COLUMNS:\n", "heading")
+                for col in self.df.columns:
+                    self._print(f"    • {col:<25}", "sub")
+                    self._print(f"({str(self.df[col].dtype)})\n", "value")
+
+                self._print("\n  DATA PREVIEW (first 5 rows):\n", "heading")
+                self._print("-" * 60 + "\n", "sub")
+                self._print(f"  {'ID':<12}{'Age':<6}{'Gender':<10}{'Dept':<14}{'Role':<16}{'Left'}\n", "sub")
+                self._print("  " + "-" * 58 + "\n", "sub")
+                for _, row in self.df[["EmployeeID", "Age", "Gender",
+                                       "Department", "JobRole", "Attrition"]].head().iterrows():
+                    self._print(
+                        f"  {str(row['EmployeeID']):<12}"
+                        f"{str(int(row['Age'])):<6}"
+                        f"{str(row['Gender']):<10}"
+                        f"{str(row['Department']):<14}"
+                        f"{str(row['JobRole']):<16}"
+                        f"{str(row['Attrition'])}\n", "value")
+
+                self._print("\n  ✅ Data ready. Click ⚙️ Process & Summarise next.\n", "success")
+                self._set_status(f"✅ Loaded {len(self.df)} records from '{fname}'")
+
+            except Exception as e:
+                self._print(f"\n  ❌ Error loading file:\n  {e}\n", "error")
+                self._set_status("❌ Failed to load data.")
+                self.df = None
+
+        # ── Step 3: Process & Summarise ───────────────────────────────────────────
+        def _process_data(self):
+            if self.df is None:
+                messagebox.showwarning("No Data", "Please load the CSV data first!")
+                return
+            try:
+                self.summary = build_summary(self.df)
+                s = self.summary
+
+                self._clear_output()
+                self._print("=" * 60 + "\n", "heading")
+                self._print("  ⚙️   DATA SUMMARY\n", "heading")
+                self._print("=" * 60 + "\n\n", "heading")
+
+                self._print("  ── GENERAL ──────────────────────────────────\n", "sub")
+                self._print(f"  Total Employees      : ", "sub");
+                self._print(f"{s['total_employees']}\n", "value")
+                self._print(f"  Departments          : ", "sub");
+                self._print(f"{', '.join(s['unique_departments'])}\n", "value")
+                self._print(f"  Education Levels     : ", "sub");
+                self._print(f"{s['education_levels']} levels\n", "value")
+
+                self._print("\n  ── EDUCATION BREAKDOWN ──────────────────────\n", "sub")
+                for code, count in s["education_counts"].items():
+                    label = s["education_label_map"].get(int(code), str(code))
+                    pct = math_round(count / s["total_employees"] * 100, 1)
+                    self._print(f"  Level {code} ({label:<12}): ", "sub")
+                    self._print(f"{count}  ({pct}%)\n", "value")
+
+                self._print("\n  ── MARITAL STATUS ───────────────────────────\n", "sub")
+                self._print(f"  Single               : ", "sub");
+                self._print(f"{s['single_count']}  ({s['single_pct']}%)\n", "value")
+                self._print(f"  Married              : ", "sub");
+                self._print(f"{s['married_count']}  ({s['married_pct']}%)\n", "value")
+                self._print(f"  Divorced             : ", "sub");
+                self._print(f"{s['divorced_count']}  ({s['divorced_pct']}%)\n", "value")
+
+                self._print("\n  ── YEARS AT COMPANY ─────────────────────────\n", "sub")
+                self._print(f"  Min / Max / Avg      : ", "sub")
+                self._print(f"{s['years_min']} / {s['years_max']} / {s['years_avg']} yrs\n", "value")
+
+                self._print("\n  ── DISTANCE FROM HOME ───────────────────────\n", "sub")
+                self._print(f"  Min / Max / Avg      : ", "sub")
+                self._print(f"{s['distance_min']} / {s['distance_max']} / {s['distance_avg']} km\n", "value")
+
+                self._print("\n  ── HOURLY RATE ──────────────────────────────\n", "sub")
+                self._print(f"  Min / Max / Avg      : ", "sub")
+                self._print(f"${s['hourly_min']} / ${s['hourly_max']} / ${s['hourly_avg']}\n", "value")
+
+                self._print("\n  ── OVERTIME ─────────────────────────────────\n", "sub")
+                self._print(f"  Works Overtime       : ", "sub");
+                self._print(f"{s['overtime_yes']}  ({s['overtime_pct']}%)\n", "value")
+                self._print(f"  No Overtime          : ", "sub");
+                self._print(f"{s['overtime_no']}\n", "value")
+
+                self._print("\n  ── WORK-LIFE BALANCE ────────────────────────\n", "sub")
+                self._print(f"  Average Score        : ", "sub")
+                self._print(f"{s['avg_work_life_balance']} / 3  ({s['wlb_label']})\n", "value")
+                self._print(f"  Scale: ", "sub");
+                self._print("0=Bad  1=Good  2=Better  3=Best\n", "value")
+
+                self._print("\n  ── ATTRITION ────────────────────────────────\n", "sub")
+                self._print(f"  Total Attritions     : ", "sub");
+                self._print(f"{s['total_attritions']} employees left\n", "value")
+                self._print(f"  Attrition Rate       : ", "sub");
+                self._print(f"{s['attrition_rate_pct']}%\n", "value")
+
+                self._print("\n  ── EMPLOYEES PER DEPARTMENT ─────────────────\n", "sub")
+                for dept, count in s["dept_counts"].items():
+                    pct = math_round(count / s["total_employees"] * 100, 1)
+                    self._print(f"  {dept:<22}: ", "sub");
+                    self._print(f"{count}  ({pct}%)\n", "value")
+
+                self._print("\n  ── GENDER BREAKDOWN ─────────────────────────\n", "sub")
+                for gender, count in s["gender_counts"].items():
+                    pct = math_round(count / s["total_employees"] * 100, 1)
+                    self._print(f"  {gender:<22}: ", "sub");
+                    self._print(f"{count}  ({pct}%)\n", "value")
+
+                self._print("\n  ── JOB ROLES ────────────────────────────────\n", "sub")
+                for role, count in s["jobrole_counts"].items():
+                    pct = math_round(count / s["total_employees"] * 100, 1)
+                    self._print(f"  {role:<22}: ", "sub");
+                    self._print(f"{count}  ({pct}%)\n", "value")
+
+                self._print("\n  ✅ Summary complete. Click 📊 Visualise next.\n", "success")
+                self._set_status(f"✅ Summary done — {s['total_employees']} employees | "
+                                 f"{s['total_attritions']} attritions ({s['attrition_rate_pct']}%)")
+
+            except Exception as e:
+                self._print(f"\n  ❌ Error processing data:\n  {e}\n", "error")
+                self._set_status("❌ Processing failed.")
