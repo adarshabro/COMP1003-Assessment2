@@ -700,4 +700,151 @@ class HealthcareAnalyserApp:
                   activebackground="#E76F51", activeforeground=BG_DARK,
                   relief="flat", padx=10, pady=6, cursor="hand2").pack(pady=(0, 10))
 
-        
+
+# ── Step 5: Generate Report ───────────────────────────────────────────────
+    def _generate_report(self):
+        if self.df is None:
+            messagebox.showwarning("No Data", "Please load the CSV data first!")
+            return
+        if not self.summary:
+            messagebox.showwarning("No Summary", "Please process the data first!")
+            return
+        try:
+            s           = self.summary
+            report_path = "report.txt"
+            total       = s["total_employees"]
+
+            with open(report_path, "w") as f:
+                f.write("=" * 65 + "\n")
+                f.write("   HEALTHCARE WORKER ENGAGEMENT ANALYSER\n")
+                f.write(f"   {SYSTEM_VERSION}  |  {DEVELOPER_NAME}  |  {STUDENT_ID}\n")
+                f.write("   COMP1003 – Programming Principles and Techniques\n")
+                f.write("=" * 65 + "\n\n")
+                f.write(f"   Report Generated : {datetime.now().strftime('%d %B %Y  %H:%M:%S')}\n")
+                f.write(f"   Dataset          : {CSV_FILE}\n")
+                f.write("\n" + "-" * 65 + "\n\n")
+
+                f.write("1. GENERAL OVERVIEW\n")
+                f.write("-" * 65 + "\n")
+                f.write(f"   Total Employees          : {total}\n")
+                f.write(f"   Number of Departments    : {s['num_departments']}\n")
+                f.write(f"   Unique Departments       : {', '.join(s['unique_departments'])}\n")
+                f.write(f"   Education Levels         : {s['education_levels']} "
+                        f"(1=GCSE, 2=A-Levels, 3=Bachelor, 4=Master, 5=Doctorate)\n\n")
+
+                f.write("2. EDUCATION BREAKDOWN\n")
+                f.write("-" * 65 + "\n")
+                for code, count in s["education_counts"].items():
+                    label = s["education_label_map"].get(int(code), str(code))
+                    pct   = math_round(count / total * 100, 1)
+                    f.write(f"   Level {code} - {label:<14}: {count}  ({pct}%)\n")
+                f.write("\n")
+
+                f.write("3. MARITAL STATUS\n")
+                f.write("-" * 65 + "\n")
+                f.write(f"   Single                   : {s['single_count']}  ({s['single_pct']}%)\n")
+                f.write(f"   Married                  : {s['married_count']}  ({s['married_pct']}%)\n")
+                f.write(f"   Divorced                 : {s['divorced_count']}  ({s['divorced_pct']}%)\n\n")
+
+                f.write("4. YEARS AT COMPANY\n")
+                f.write("-" * 65 + "\n")
+                f.write(f"   Minimum                  : {s['years_min']} years\n")
+                f.write(f"   Maximum                  : {s['years_max']} years\n")
+                f.write(f"   Average                  : {s['years_avg']} years\n\n")
+
+                f.write("5. DISTANCE FROM HOME\n")
+                f.write("-" * 65 + "\n")
+                f.write(f"   Minimum                  : {s['distance_min']} km\n")
+                f.write(f"   Maximum                  : {s['distance_max']} km\n")
+                f.write(f"   Average                  : {s['distance_avg']} km\n\n")
+
+                f.write("6. HOURLY RATE\n")
+                f.write("-" * 65 + "\n")
+                f.write(f"   Minimum                  : ${s['hourly_min']}\n")
+                f.write(f"   Maximum                  : ${s['hourly_max']}\n")
+                f.write(f"   Average                  : ${s['hourly_avg']}\n\n")
+
+                f.write("7. OVERTIME\n")
+                f.write("-" * 65 + "\n")
+                f.write(f"   Works Overtime           : {s['overtime_yes']}  ({s['overtime_pct']}%)\n")
+                f.write(f"   No Overtime              : {s['overtime_no']}\n\n")
+
+                f.write("8. ENGAGEMENT & ATTRITION\n")
+                f.write("-" * 65 + "\n")
+                f.write(f"   Avg Work-Life Balance    : {s['avg_work_life_balance']} / 3"
+                        f"  ({s['wlb_label']})\n")
+                f.write(f"   Scale                    : 0=Bad, 1=Good, 2=Better, 3=Best\n")
+                f.write(f"   Total Attritions         : {s['total_attritions']} employees left\n")
+                f.write(f"   Attrition Rate           : {s['attrition_rate_pct']}%\n\n")
+
+                f.write("9. EMPLOYEES PER DEPARTMENT\n")
+                f.write("-" * 65 + "\n")
+                for dept, count in s["dept_counts"].items():
+                    pct = math_round(count / total * 100, 1)
+                    f.write(f"   {dept:<24}: {count}  ({pct}%)\n")
+                f.write("\n")
+
+                f.write("10. GENDER BREAKDOWN\n")
+                f.write("-" * 65 + "\n")
+                for gender, count in s["gender_counts"].items():
+                    pct = math_round(count / total * 100, 1)
+                    f.write(f"   {gender:<24}: {count}  ({pct}%)\n")
+                f.write("\n")
+
+                f.write("11. JOB ROLE BREAKDOWN\n")
+                f.write("-" * 65 + "\n")
+                for role, count in s["jobrole_counts"].items():
+                    pct = math_round(count / total * 100, 1)
+                    f.write(f"   {role:<24}: {count}  ({pct}%)\n")
+                f.write("\n")
+
+                f.write("12. KEY INSIGHTS\n")
+                f.write("-" * 65 + "\n")
+                f.write(f"   - Overall attrition rate is {s['attrition_rate_pct']}% "
+                        f"({s['total_attritions']} employees left).\n")
+                f.write(f"   - Average work-life balance is {s['avg_work_life_balance']}/3 "
+                        f"({s['wlb_label']}).\n")
+                f.write(f"   - Largest department: "
+                        f"{max(s['dept_counts'], key=s['dept_counts'].get)} "
+                        f"({max(s['dept_counts'].values())} employees).\n")
+                f.write(f"   - {s['overtime_pct']}% of employees work overtime "
+                        f"({s['overtime_yes']} employees).\n")
+                f.write(f"   - Employees average {s['years_avg']} years tenure "
+                        f"and earn ${s['hourly_avg']}/hour on average.\n")
+                f.write(f"   - Marital status: {s['married_pct']}% married, "
+                        f"{s['single_pct']}% single, {s['divorced_pct']}% divorced.\n\n")
+
+                f.write("=" * 65 + "\n")
+                f.write("   END OF REPORT\n")
+                f.write(f"   Generated by {DEVELOPER_NAME} | {STUDENT_ID}\n")
+                f.write("=" * 65 + "\n")
+
+            self._clear_output()
+            self._print("=" * 60 + "\n", "heading")
+            self._print("  📄  REPORT GENERATED SUCCESSFULLY\n", "heading")
+            self._print("=" * 60 + "\n\n", "heading")
+            self._print(f"  Saved to : ", "sub")
+            self._print(f"{os.path.abspath(report_path)}\n\n", "value")
+            for sec in ["1. General Overview", "2. Education Breakdown",
+                        "3. Marital Status", "4. Years at Company",
+                        "5. Distance from Home", "6. Hourly Rate",
+                        "7. Overtime", "8. Engagement & Attrition",
+                        "9. Employees per Department", "10. Gender Breakdown",
+                        "11. Job Role Breakdown", "12. Key Insights"]:
+                self._print(f"    ✓ {sec}\n", "success")
+            self._print(f"\n  ✅ report.txt saved!\n", "success")
+            self._set_status(f"✅ report.txt saved to {os.path.abspath(report_path)}")
+            messagebox.showinfo("Report Saved",
+                                f"report.txt saved!\n\n{os.path.abspath(report_path)}")
+
+        except Exception as e:
+            self._print(f"\n  ❌ Error generating report:\n  {e}\n", "error")
+            self._set_status("❌ Report generation failed.")
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    root = tk.Tk()
+    app  = HealthcareAnalyserApp(root)
+    root.mainloop()
+
